@@ -76,16 +76,19 @@ void ta_yield(void) {
 	next_to_run = head -> next;
 	list_append(current_thread -> context, &head);		//append the currently running thread to end of queue
 	head = next_to_run;					//new head of queue is the context we are about to switch to
+	free(current_thread);
 	swapcontext(&(current_thread -> context), &(next_to_run -> context));		//swap from current context to next context
     }
+    swapcontext(&(current_thread -> context), &mainthread);
     return;
 }
 
 int ta_waitall(void) {
     while (head != NULL){
 	swapcontext(&mainthread, &(head -> context));
-	//deallocate the node at head
+	struct node *temp = head;
 	head = head -> next;
+	free(temp);
     }
     if (all_queues_empty == 0){
 	return 0;
@@ -111,20 +114,23 @@ void ta_sem_destroy(tasem_t *sem) {
 void ta_sem_post(tasem_t *sem) {
     sem -> count++;
     //unblock thread at head of queue (if there is one)
-    all_queues_empty--; //do this only if a thread is actually unblocked
+    struct node *unblock = *(sem -> blocked);
+    if (sem -> blocked != NULL) {
+	sem -> blocked = &(unblock -> next);
+	list_append(unblock -> context, &head);
+	free(unblock);					//Not sure if this is needed
+	all_queues_empty--;				//decrement counter of total waiting/blocked queues
+    }
 }
+
 
 void ta_sem_wait(tasem_t *sem) {
     sem -> count--;
     //if count < 0, wait in queue
     if (sem -> count < 0){
-	/*struct node *tempnode = head;
-    	if (tempnode -> next != NULL) {							//if there is a thread waiting in the queue
-	    struct node *currthread = tempnode -> next;
-    	    list_append((tempnode -> context), (sem -> blocked));					//add current to end of queue
-	    head = currthread;
-        }*/
-	all_queues_empty++;
+    	list_append((head -> context), (sem -> blocked));		//add the current thread to the end of the blocked queue
+	all_queues_empty++;						//increment the count of blocked/waiting threads
+	ta_yield();
     }
 }
 
@@ -155,14 +161,26 @@ void ta_lock_destroy(talock_t *mutex) {
 }
 
 void ta_lock(talock_t *mutex){
-    if (mutex -> lock == 1) {
-	all_queues_empty++;
+    if (mutex -> lock == 1) {		//If some other thread has the lock, add current thread to waiting queue
+    	list_append((head -> context), (mutex -> waiting));		//add the current thread to the end of the blocked queue
+	all_queues_empty++;						//increment the count of blocked/waiting threads
+	ta_yield();
     }
-    mutex -> lock = 1;
+    else {mutex -> lock = 1;}			//Else, acquire the lock and keep running
 }
 
 void ta_unlock(talock_t *mutex) {
-    mutex -> lock = 0;
+    struct node *ready = *(mutex -> waiting);
+    if (ready == NULL) {				//If no threads are waiting for the lock, unlock the lock
+	mutex -> lock = 0;
+    }
+    if (ready != NULL) {		//If there are threads waiting for the lock
+	mutex -> waiting = &(ready -> next);
+	list_append(ready -> context, &head);		//pass the lock to the next thread and add that thread to the ready queue
+	free(ready);
+	all_queues_empty--;
+    }
+    
 }
 
 

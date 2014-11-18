@@ -87,13 +87,10 @@ int main(int argc, char **argv)
     memset(data, 0, sizeof(int)*DATALEN);
     datalen = DATALEN;
 
-    printf("HEMOGLOBIN\n");
     ta_sem_init(&readersem, 0);
     ta_sem_init(&writersem, DATALEN);
-    printf("HEMOGLOBIN2\n");
     ta_lock_init(&rmutex);
     ta_lock_init(&wmutex);
-    printf("HEMOGLOBIN3\n");
     ta_create(killerthr, (void *)i);
 
     for (i = 0; i < nrw; i++) {
