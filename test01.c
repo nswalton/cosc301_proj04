@@ -31,7 +31,6 @@ int main(int argc, char **argv)
         ta_create(thread1, (void *)&i);
         ta_create(thread2, (void *)&i);
     }
-
     int rv = ta_waitall();
     if (rv) {
         fprintf(stderr, "%d threads were not ready to run when ta_waitall() was called\n", -rv);

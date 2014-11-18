@@ -4,17 +4,29 @@
 
 #ifndef __THREADSALIVE_H__
 #define __THREADSALIVE_H__
+#include <ucontext.h>
 
 /* ***************************
         type definitions
    *************************** */
 
-typedef struct {
+struct node {
+    ucontext_t context;
+    struct node *next; 
+};
 
+typedef struct {
+    int count;
+    struct node **blocked;
 } tasem_t;
 
-typedef struct {
+/*typedef struct {
+    tasem_t *lock;
+} talock_t;*/
 
+typedef struct {
+    int lock;
+    struct node **waiting;
 } talock_t;
 
 typedef struct {
@@ -25,6 +37,8 @@ typedef struct {
 /* ***************************
        stage 1 functions
    *************************** */
+void list_append(ucontext_t context, struct node **head);
+void list_destroy(struct node **head);
 
 void ta_libinit(void);
 void ta_create(void (*)(void *), void *);
